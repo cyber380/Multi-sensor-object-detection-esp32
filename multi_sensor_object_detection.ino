@@ -1,56 +1,52 @@
 #include <WiFi.h>
+#include <HTTPClient.h>
 
-// Your hotspot credentials
-const char* ssid = "hi";
-const char* password = "9437265232";
+//  WiFi credentials
+const char* ssid = "Anushka's A36";
+const char* password = "@nushka123";
+
+//  Flask server
+const char* serverName = "http://10.137.185.37:5000/data";
 
 // IR sensor pins
 const int ir1 = 2;
 const int ir2 = 4;
 const int ir3 = 5;
 
-// Ultrasonic sensor pins
+// Ultrasonic pins
 const int trigPin = 19;
 const int echoPin = 21;
 
-// Buzzer pin
+// Buzzer
 const int buzzer = 18;
 
 // Distance threshold
 const int threshold = 20;
 
-// Previous state
 bool objectDetected = false;
 
 void setup() {
   Serial.begin(115200);
-  delay(1000);  // Give time for Serial to start
+  delay(1000);
 
   Serial.println("System Started");
 
-  // WiFi connection with timeout
+  // WiFi connect
   WiFi.begin(ssid, password);
-  Serial.print("Connecting to WiFi");
+  Serial.print("Connecting");
 
-  int timeout = 0;
-  while (WiFi.status() != WL_CONNECTED && timeout < 20) {
+  while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
-    timeout++;
   }
 
-  if (WiFi.status() == WL_CONNECTED) {
-    Serial.println("\nConnected to WiFi!");
-    Serial.print("IP Address: ");
-    Serial.println(WiFi.localIP());
-  } else {
-    Serial.println("\nWiFi Failed! Continuing without WiFi...");
-  }
+  Serial.println("\nConnected!");
+  Serial.println(WiFi.localIP());
 
-  // Sensor setup
-  pinMode(ir1, INPUT);
-  pinMode(ir2, INPUT);
-  pinMode(ir3, INPUT);
+  // 🔥 FIX: Use INPUT_PULLUP for stable readings
+  pinMode(ir1, INPUT_PULLUP);
+  pinMode(ir2, INPUT_PULLUP);
+  pinMode(ir3, INPUT_PULLUP);
 
   pinMode(trigPin, OUTPUT);
   pinMode(echoPin, INPUT);
@@ -81,6 +77,13 @@ void loop() {
 
   long distance = getDistance();
 
+  // Debug (VERY IMPORTANT)
+  Serial.print("IR1: "); Serial.print(irVal1);
+  Serial.print(" IR2: "); Serial.print(irVal2);
+  Serial.print(" IR3: "); Serial.print(irVal3);
+  Serial.print(" Distance: "); Serial.println(distance);
+
+  // Correct logic (LOW = detected)
   bool ir1Detected = (irVal1 == LOW);
   bool ir2Detected = (irVal2 == LOW);
   bool ir3Detected = (irVal3 == LOW);
@@ -88,15 +91,13 @@ void loop() {
 
   bool currentState = ir1Detected || ir2Detected || ir3Detected || ultraDetected;
 
+  //  Buzzer logic
   if (currentState && !objectDetected) {
-
-    Serial.print("Object detected by: ");
-
+    Serial.print("Detected by: ");
     if (ir1Detected) Serial.print("IR1 ");
     if (ir2Detected) Serial.print("IR2 ");
     if (ir3Detected) Serial.print("IR3 ");
     if (ultraDetected) Serial.print("Ultrasonic ");
-
     Serial.println();
 
     digitalWrite(buzzer, HIGH);
@@ -109,5 +110,28 @@ void loop() {
     objectDetected = false;
   }
 
-  delay(100);
+  //  Send data to server
+  if (WiFi.status() == WL_CONNECTED) {
+
+    HTTPClient http;
+
+    String json = "{";
+    json += "\"ir1\":" + String(irVal1) + ",";
+    json += "\"ir2\":" + String(irVal2) + ",";
+    json += "\"ir3\":" + String(irVal3) + ",";
+    json += "\"distance\":" + String(distance);
+    json += "}";
+
+    http.begin(serverName);
+    http.addHeader("Content-Type", "application/json");
+
+    int response = http.POST(json);
+
+    Serial.print("Server Response: ");
+    Serial.println(response);
+
+    http.end();
+  }
+
+  delay(2000);
 }
