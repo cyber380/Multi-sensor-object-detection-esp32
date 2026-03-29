@@ -17,7 +17,7 @@ The system continuously monitors all sensors.
 If any ir sensor detects an object within a threshold:
 A buzzer is triggered
 Serial Monitor displays detection message with which sensor detected the object and the distance.
-A dashboard also shows all these data.
+A server dashboard also shows all these data.
 
 Components Used :
 ESP32
